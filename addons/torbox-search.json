@@ -1,18 +1,24 @@
 {
   "id": "torbox-search",
   "name": "TorBox Search",
-  "version": "1.0.0",
-  "description": "Searches TorBox's own index for the book you're looking at. Uses the TorBox key already saved in AudioYam; results marked cached play instantly.",
+  "version": "1.1.0",
+  "description": "Searches TorBox for the book you're looking at, including the search engines set up in your own TorBox account (Settings \u2192 Search engines). Uses the TorBox key saved in AudioYam; results marked cached play instantly.",
   "contentType": "",
-  "rateLimit": { "requestsPerMinute": 20 },
-  "matching": { "threshold": 0.5 },
+  "rateLimit": {
+    "requestsPerMinute": 20
+  },
+  "matching": {
+    "threshold": 0.5
+  },
   "adapters": {
     "source": {
       "request": {
         "method": "GET",
-        "url": "https://search-api.torbox.app/torrents/search/{QUERY}?metadata=false&check_cache=true&check_owned=false",
-        "headers": { "Authorization": "Bearer {TORBOX_KEY}" },
-        "timeout": 30000
+        "url": "https://search-api.torbox.app/torrents/search/{QUERY}?metadata=false&check_cache=true&check_owned=false&search_user_engines=true",
+        "headers": {
+          "Authorization": "Bearer {TORBOX_KEY}"
+        },
+        "timeout": 60000
       },
       "response": {
         "resultsPath": "data.torrents",
