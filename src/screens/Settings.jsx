@@ -11,7 +11,7 @@ import { importReadList, takeGoodreadsReads } from '../lib/readlists.js';
 import { aiVoiceOn, stopAnswer } from '../lib/voiceask.js';
 import { SOURCES, absSrc, addonSrc, cloud, hc, gr, sourceOrder } from '../sources/index.js';
 import { clearHttpCache, isWeb, relayUrl, setRelayUrl, probeRelay, defaultRelayUrl } from '../lib/http.js';
-import { searchSources, sourceAddons } from '../sources/sourceaddons.js';
+import { searchSources, sourceAddons, testSource } from '../sources/sourceaddons.js';
 import { ai, PROVIDERS as AI_PROVIDERS, testProvider, aiOff, aiOn } from '../lib/ai.js';
 import relayCode from '../../relay/index.ts?raw';
 import { ACCENTS, PALETTES, activePalette, isInk } from '../lib/theme.js';
@@ -1173,12 +1173,19 @@ function AddonsCard() {
   const [url, setUrl] = useState('');
   const [busy, setBusy] = useState(false);
   const [raw, setRaw] = useState(null);
+  const [tests, setTests] = useState({}); // addon id -> { running } | { steps }
+  const runTest = async (a) => {
+    setTests((t) => ({ ...t, [a.manifest.id]: { running: true } }));
+    const r = await testSource(a).catch((e) => ({ steps: [{ label: 'Test', ok: false, text: e.message || String(e) }] }));
+    setTests((t) => ({ ...t, [a.manifest.id]: r }));
+  };
   return (
     <>
       <p class="muted pad-s">
         Paste an addon link: a source addon (a JSON link), a Stremio-style manifest, or an addon collection. Only install addons you trust.
       </p>
       {list.map((a) => (
+        <>
         <div class="set-row addon-row">
           <AddonLogo m={a.manifest} />
           <div>
@@ -1187,6 +1194,11 @@ function AddonsCard() {
               v{a.manifest.version} · {a.kind === 'source' ? 'source addon · results in Search & book pages' : `${(a.manifest.catalogs || []).length} catalogs`}
             </small>
           </div>
+          {a.kind === 'source' && (
+            <button class="pill small" disabled={tests[a.manifest.id]?.running} onClick={() => runTest(a)} title="Search for a well-known book and show what comes back">
+              {tests[a.manifest.id]?.running ? 'Testing…' : 'Test'}
+            </button>
+          )}
           <button
             class="icon-btn"
             aria-label="Copy the addon's JSON"
@@ -1203,6 +1215,19 @@ function AddonsCard() {
             <Icon name="trash" size={18} />
           </button>
         </div>
+        {tests[a.manifest.id]?.steps && (
+          <div class="raw-box">
+            {tests[a.manifest.id].steps.map((st) => (
+              <p>
+                <b>
+                  {st.ok ? '✓' : '✗'} {st.label}:
+                </b>{' '}
+                {st.text}
+              </p>
+            ))}
+          </div>
+        )}
+        </>
       ))}
       <form
         class="set-form inline"

@@ -370,3 +370,56 @@ async function markInstant(results) {
   const out = results.map((r) => (instant.has(r.hash) ? { ...r, cache: { ...r.cache, torbox: true, any: true } } : r));
   return out.sort((a, b) => Number(b.cache.any) - Number(a.cache.any) || Number(b.seeders !== 0) - Number(a.seeders !== 0) || b.score - a.score || (b.seeders || 0) - (a.seeders || 0));
 }
+
+/**
+ * "Test" button in Settings → Addons: one real search for a well-known book, with what
+ * happened in plain words (couldn't connect / HTTP error / how many results and which),
+ * so a source that shows nothing can be told apart from one that can't be reached.
+ */
+export async function testSource(addon, query = 'Project Hail Mary') {
+  const src = addon.manifest.adapters.source;
+  const req = src.request || {};
+  const res = src.response || {};
+  const out = { query, steps: [] };
+  const vars = { TITLE: query, AUTHOR: '', QUERY: query, LIMIT: '20' };
+  const rawUrl = fill(req.url, vars, true);
+  if (/\{TORBOX_KEY\}/i.test(JSON.stringify([req.url, req.headers, req.body]))) {
+    vars.TORBOX_KEY = torboxKeyFor(rawUrl);
+    if (!vars.TORBOX_KEY) {
+      out.steps.push({ label: 'TorBox key', ok: false, text: isTorboxUrl(rawUrl) ? 'No TorBox key saved — add it in Settings → Cloud' : 'Only torbox.app addons can use the TorBox key' });
+      return out;
+    }
+    out.steps.push({ label: 'TorBox key', ok: true, text: 'found' });
+  }
+  const headers = fill(req.headers || {}, vars, false);
+  const tries = [['Quick search', req.url, req.timeout || 30000]];
+  if (req.altUrl) tries.push(['Slower search', req.altUrl, req.altTimeout || 60000]);
+  for (const [label, tpl, timeout] of tries) {
+    const url = fill(tpl, vars, true);
+    const host = (() => {
+      try {
+        return new URL(url).hostname;
+      } catch {
+        return url;
+      }
+    })();
+    const t0 = Date.now();
+    try {
+      const data = await getJson(url, { headers, timeout: Math.max(timeout, 60000), fresh: true });
+      const list = at(data, res.resultsPath);
+      const secs = `${((Date.now() - t0) / 1000).toFixed(1)}s`;
+      if (!Array.isArray(list)) {
+        out.steps.push({ label, ok: false, text: `${host} answered in ${secs} but there's no result list at "${res.resultsPath}" (it has: ${Object.keys(data || {}).slice(0, 8).join(', ') || 'nothing'})` });
+        continue;
+      }
+      const map = res.mapping || {};
+      const titles = list.slice(0, 3).map((r) => String(at(r, map.title || 'title') ?? '?').slice(0, 70));
+      out.steps.push({ label, ok: list.length > 0, text: `${host} answered in ${secs}: ${list.length} result${list.length === 1 ? '' : 's'}${titles.length ? ' — ' + titles.join(' | ') : ''}` });
+      if (list.length) break;
+    } catch (e) {
+      const why = e.status ? `HTTP ${e.status}${/ — /.test(e.message) ? e.message.replace(/^HTTP \d+/, '') : ''}` : e.timeout ? `no answer within ${Math.round(timeout / 1000)}s` : `couldn't connect (${redact(e.message || String(e)).slice(0, 80)})`;
+      out.steps.push({ label, ok: false, text: `${host}: ${why}` });
+    }
+  }
+  return out;
+}
