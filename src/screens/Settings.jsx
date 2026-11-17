@@ -403,8 +403,9 @@ function WebRelayCard() {
   return (
     <>
       <p class="muted">
-        On iPhone and iPad, Safari blocks a few services — Hardcover, Audible listings and Goodreads — unless they go through a small relay in your
-        Supabase project. Everything else (TorBox, Real-Debrid, Audiobookshelf over https, free sources) works directly.
+        {isWeb
+          ? 'On iPhone and iPad, Safari blocks a few services — Hardcover, Audible listings and Goodreads — unless they go through a small relay in your Supabase project. Everything else (TorBox, Real-Debrid, Audiobookshelf over https, free sources) works directly.'
+          : "On Android everything is reached directly. Only if your network blocks a site (for example TorBox Search showing “couldn't connect”) can you send it through a small relay you host: set it up below, and the app uses it as a second try."}
       </p>
       <div class="set-row">
         <div>
@@ -1368,11 +1369,9 @@ export function Settings() {
       <button class="btn ghost-wide whats-new-btn" onClick={() => showWhatsNew()}>
         <Icon name="sparkle" size={16} /> What’s new in this version
       </button>
-      {isWeb && (
-        <Section icon="link" title="Web app">
-          <WebRelayCard />
-        </Section>
-      )}
+      <Section icon="link" title={isWeb ? 'Web app' : 'Relay (if your network blocks a site)'}>
+        <WebRelayCard />
+      </Section>
       <p class="set-group">Account</p>
       <Section icon="user" title="Account & sync">
         <NameRow />
