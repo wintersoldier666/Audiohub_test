@@ -25,6 +25,7 @@ const ALLOWED = [
   /^(www\.)?getstoryshots\.com$/,
   /^itunes\.apple\.com$/,
   /^api\.torbox\.app$/,
+  /^search-api\.torbox\.app$/,
   /^api\.real-debrid\.com$/,
   /^openlibrary\.org$/,
   /^www\.googleapis\.com$/,
