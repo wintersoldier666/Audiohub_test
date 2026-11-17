@@ -208,7 +208,19 @@ async function searchOnce(addon, vars0, key, { title = '', author = '', query = 
   }
 
   const res = src.response || {};
-  const list = at(data, res.resultsPath);
+  let list = at(data, res.resultsPath);
+  // An addon can give a second, slower search (altUrl) for when the first finds nothing
+  // (TorBox: also ask the search engines set up in your own TorBox account). If that one
+  // fails, the answer stays "nothing found" rather than an error.
+  if (method === 'GET' && req.altUrl && !(Array.isArray(list) && list.length)) {
+    try {
+      const more = await getJson(fill(req.altUrl, vars, true), { headers, timeout: Math.max(req.altTimeout || 0, 60000), fresh: true });
+      if (Array.isArray(at(more, res.resultsPath)) && at(more, res.resultsPath).length) {
+        data = more;
+        list = at(more, res.resultsPath);
+      }
+    } catch {}
+  }
   // Say why nothing shows instead of failing silently (these aren't retried).
   const why = (msg) => Object.assign(new Error(msg), { final: true });
   const hasData = data && typeof data === 'object' && Object.keys(data).length > 0;

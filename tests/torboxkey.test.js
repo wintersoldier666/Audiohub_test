@@ -14,3 +14,11 @@ describe('TorBox addon key', () => {
     expect(isSourceManifest(manifest)).toBe(true);
   });
 });
+
+describe('TorBox addon searches', () => {
+  it('has a quick search and a slower fallback that also asks your own engines', () => {
+    const req = manifest.adapters.source.request;
+    expect(req.url).not.toMatch(/search_user_engines/);
+    expect(req.altUrl).toMatch(/search_user_engines=true/);
+  });
+});
