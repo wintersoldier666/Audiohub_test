@@ -176,6 +176,9 @@ Fixed: cleared items stay cleared, across devices too. The list only shows items
 **What are source add-ons?**
 Small JSON definitions (hosted anywhere, e.g. a gist) that tell AudioYam how to search a site. Add them in Settings → Addons, and reorder or switch them off in Settings → Sources. Results appear on book pages under "Sources". Only install add-ons you trust.
 
+**Can an add-on use my TorBox key?**
+Yes. A source add-on can write `{TORBOX_KEY}` in its request (see `addons/torbox-search.json`) and AudioYam fills in the key saved in Settings → Cloud. It is only filled in for `torbox.app` addresses, so no other add-on ever sees it. Install it by pasting the manifest's raw link in Settings → Addons.
+
 **Why do some results say "loose matches"?**
 Results that don't clearly match the book (title words and the author's name) are hidden behind "Show N loose matches", so the list isn't full of other books with similar titles.
 

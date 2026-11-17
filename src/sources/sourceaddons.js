@@ -3,7 +3,7 @@
 // JSON response into results carrying a magnet link / info-hash. Inkwell hands
 // the magnet to the user's TorBox or Real-Debrid account to stream it.
 import { getJson, sendJson } from '../lib/http.js';
-import { addons, persisted } from '../lib/store.js';
+import { addons, debrid, persisted } from '../lib/store.js';
 import { logError, redact } from '../lib/report.js';
 import { words, matches, cleanAuthor, otherBook, searchTitle } from '../lib/match.js';
 import { infoHash, torboxCached } from './debrid.js';
@@ -16,10 +16,22 @@ export const sourceLabel = (name) => name;
 
 export const sourceAddons = () => addons.get().filter((a) => a.kind === 'source');
 
+// An addon may ask for the TorBox key the app already stores ({TORBOX_KEY}), so you don't
+// paste it again. It is filled in only for torbox.app addresses: any other addon gets nothing.
+export const isTorboxUrl = (u) => {
+  try {
+    const h = new URL(u).hostname;
+    return h === 'torbox.app' || h.endsWith('.torbox.app');
+  } catch {
+    return false;
+  }
+};
+export const torboxKeyFor = (url) => (isTorboxUrl(url) ? String(debrid.get().torbox || '').trim() : '');
+
 // ---- helpers ----------------------------------------------------------------
 function fill(v, vars, encode) {
   if (typeof v === 'string')
-    return v.replace(/\{(TITLE|AUTHOR|QUERY|NARRATOR|ISBN|LIMIT)\}/gi, (_, k) => {
+    return v.replace(/\{(TITLE|AUTHOR|QUERY|NARRATOR|ISBN|LIMIT|TORBOX_KEY)\}/gi, (_, k) => {
       const val = vars[k.toUpperCase()] ?? '';
       return encode ? encodeURIComponent(val) : val;
     });
@@ -161,14 +173,21 @@ function runOnce(addon, p, retry = 0) {
 }
 
 const slowSources = new Map(); // addon id -> { fails, at }: sources that keep timing out
-async function searchOnce(addon, vars, key, { title = '', author = '', query = '' }, retry) {
+async function searchOnce(addon, vars0, key, { title = '', author = '', query = '' }, retry) {
   const src = addon.manifest.adapters.source;
+  let vars = vars0;
   await takeSlot(addon);
 
   const req = src.request || {};
   const method = (req.method || 'GET').toUpperCase();
+  const rawUrl = fill(req.url, vars, true);
+  const wantsKey = /\{TORBOX_KEY\}/i.test(JSON.stringify([req.url, req.headers, req.body]));
+  if (wantsKey) {
+    vars = { ...vars, TORBOX_KEY: torboxKeyFor(rawUrl) };
+    if (!vars.TORBOX_KEY) throw Object.assign(new Error(isTorboxUrl(rawUrl) ? 'Add your TorBox key in Settings → Cloud first' : 'Only torbox.app addons can use the TorBox key'), { final: true });
+  }
   const url = fill(req.url, vars, true);
-  const headers = req.headers || {};
+  const headers = fill(req.headers || {}, vars, false);
   // Torrent search sites can take a while; the second go waits longer. A source that timed out
   // twice in the last half hour (down, or very slow) gets only 10 s — the others aren't held up.
   const id = addon.manifest.id;
